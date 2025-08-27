@@ -1,2 +1,9 @@
-com\stegocam\Main.class
+com\stegocam\crypto\KeyGenerator.class
 com\stegocam\App.class
+com\stegocam\stego\StegoEngine.class
+com\stegocam\config\AppConfig.class
+com\stegocam\crypto\CryptoEngine.class
+com\stegocam\util\LoggerUtil.class
+com\stegocam\controller\StegoController.class
+com\stegocam\gui\MainUI.class
+com\stegocam\io\ImageHandler.class
