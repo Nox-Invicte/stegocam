@@ -1,8 +1,8 @@
-com\stegocam\crypto\KeyGenerator.class
+Main.class
 com\stegocam\App.class
 com\stegocam\stego\StegoEngine.class
 com\stegocam\config\AppConfig.class
-com\stegocam\crypto\CryptoEngine.class
+com\stegocam\Steganography.class
 com\stegocam\util\LoggerUtil.class
 com\stegocam\controller\StegoController.class
 com\stegocam\gui\MainUI.class

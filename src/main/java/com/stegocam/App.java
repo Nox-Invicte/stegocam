@@ -1,21 +1,20 @@
 package com.stegocam;
 
+import com.stegocam.gui.MainUI;
 import javafx.application.Application;
 import javafx.stage.Stage;
-import com.stegocam.gui.MainUI;
 
 public class App extends Application {
 
+    private final MainUI mainUI = new MainUI();
+
     @Override
     public void start(Stage stage) {
-        MainUI mainUI = new MainUI();
-        mainUI.start(stage); // Launches the MainUI
-
-        stage.setTitle("StegoCam");
+        mainUI.initialise(stage);
         stage.show();
     }
 
     public static void main(String[] args) {
-        launch(args); // Launches JavaFX application
+        launch(args);
     }
 }

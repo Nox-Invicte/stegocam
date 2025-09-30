@@ -1,100 +1,202 @@
 package com.stegocam.controller;
 
-import com.stegocam.crypto.CryptoEngine;
-import com.stegocam.crypto.KeyGenerator;
-import com.stegocam.stego.StegoEngine;
+import com.stegocam.Steganography;
 import com.stegocam.io.ImageHandler;
+import com.stegocam.stego.StegoEngine;
+import com.stegocam.util.LoggerUtil;
 
 import java.awt.image.BufferedImage;
-import java.security.Key;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 /**
- * Controller class that handles encryption/decryption calls
- * Coordinates between crypto, stego, and IO components
+ * High-level application controller for steganography workflows. Bridges the
+ * UI with the lower-level engine and handles file system interactions.
  */
 public class StegoController {
-    
-    private final CryptoEngine cryptoEngine;
-    private final StegoEngine stegoEngine;
+
     private final ImageHandler imageHandler;
-    private final KeyGenerator keyGenerator;
-    
+    private final StegoEngine stegoEngine;
+
     public StegoController() {
-        this.cryptoEngine = new CryptoEngine();
-        this.stegoEngine = new StegoEngine();
-        this.imageHandler = new ImageHandler();
-        this.keyGenerator = new KeyGenerator();
+        this(new ImageHandler(), new StegoEngine());
     }
-    
-    /**
-     * Encrypt and embed a message into an image
-     */
-    public boolean encryptAndEmbed(String inputImagePath, String outputImagePath, String message, String password) {
+
+    public StegoController(ImageHandler imageHandler, StegoEngine stegoEngine) {
+        this.imageHandler = Objects.requireNonNull(imageHandler, "imageHandler");
+        this.stegoEngine = Objects.requireNonNull(stegoEngine, "stegoEngine");
+    }
+
+    public boolean embedMessage(String inputPath, String outputPath, String message) {
+        LoggerUtil.startOperation("Embed message");
+        if (isBlank(inputPath) || isBlank(outputPath)) {
+            LoggerUtil.warn("Input and output paths must be provided.");
+            LoggerUtil.completeOperation("Embed message", false);
+            return false;
+        }
+
+        String trimmedInput = inputPath.trim();
+        String trimmedOutput = outputPath.trim();
+
+        BufferedImage coverImage = imageHandler.loadImage(trimmedInput);
+        if (coverImage == null) {
+            LoggerUtil.warn("Unable to load input image: " + inputPath);
+            LoggerUtil.completeOperation("Embed message", false);
+            return false;
+        }
+
+        byte[] payload = message == null ? new byte[0] : message.getBytes(StandardCharsets.UTF_8);
+
         try {
-            // Load the image
-            BufferedImage image = imageHandler.loadImage(inputImagePath);
-            if (image == null) {
-                return false;
-            }
-            
-            // Generate encryption key from password
-            Key key = keyGenerator.generateKeyFromPassword(password);
-            
-            // Encrypt the message
-            byte[] encryptedMessage = cryptoEngine.encrypt(message.getBytes(), key);
-            
-            // Embed the encrypted message into the image
-            BufferedImage stegoImage = stegoEngine.embedMessage(image, encryptedMessage);
-            
-            // Save the stego image
-            return imageHandler.saveImage(stegoImage, outputImagePath);
-            
-        } catch (Exception e) {
-            System.err.println("Error during encryption and embedding: " + e.getMessage());
+            BufferedImage stegoImage = stegoEngine.embedMessage(coverImage, payload);
+            ensureParentDirectory(trimmedOutput);
+            boolean saved = imageHandler.saveImage(stegoImage, trimmedOutput);
+            LoggerUtil.completeOperation("Embed message", saved);
+            return saved;
+        } catch (IllegalArgumentException ex) {
+            LoggerUtil.warn("Failed to embed message: " + ex.getMessage());
+            LoggerUtil.completeOperation("Embed message", false);
+            return false;
+        } catch (Exception ex) {
+            LoggerUtil.error("Unexpected error during embedding", ex);
+            LoggerUtil.completeOperation("Embed message", false);
             return false;
         }
     }
-    
-    /**
-     * Extract and decrypt a message from an image
-     */
-    public String extractAndDecrypt(String stegoImagePath, String password) {
+
+    public String extractMessage(String inputPath) {
+        LoggerUtil.startOperation("Extract message");
+        if (isBlank(inputPath)) {
+            LoggerUtil.warn("Input path must be provided.");
+            LoggerUtil.completeOperation("Extract message", false);
+            return null;
+        }
+
+        String trimmedInput = inputPath.trim();
+        BufferedImage stegoImage = imageHandler.loadImage(trimmedInput);
+        if (stegoImage == null) {
+            LoggerUtil.warn("Unable to load image for extraction: " + inputPath);
+            LoggerUtil.completeOperation("Extract message", false);
+            return null;
+        }
+
         try {
-            // Load the stego image
-            BufferedImage stegoImage = imageHandler.loadImage(stegoImagePath);
-            if (stegoImage == null) {
-                return null;
+            byte[] data = stegoEngine.extractMessage(stegoImage);
+            String message = new String(data, StandardCharsets.UTF_8);
+            LoggerUtil.completeOperation("Extract message", true);
+            return message;
+        } catch (IllegalArgumentException ex) {
+            if (isNoMessageFound(ex)) {
+                LoggerUtil.warn("No embedded message detected in image: " + inputPath);
+                LoggerUtil.completeOperation("Extract message", true);
+                return "";
             }
-            
-            // Generate encryption key from password
-            Key key = keyGenerator.generateKeyFromPassword(password);
-            
-            // Extract the encrypted message
-            byte[] encryptedMessage = stegoEngine.extractMessage(stegoImage);
-            
-            // Decrypt the message
-            byte[] decryptedBytes = cryptoEngine.decrypt(encryptedMessage, key);
-            
-            return new String(decryptedBytes);
-            
-        } catch (Exception e) {
-            System.err.println("Error during extraction and decryption: " + e.getMessage());
+            LoggerUtil.warn("Extraction failed: " + ex.getMessage());
+            LoggerUtil.completeOperation("Extract message", false);
+            return null;
+        } catch (Exception ex) {
+            LoggerUtil.error("Unexpected error during extraction", ex);
+            LoggerUtil.completeOperation("Extract message", false);
             return null;
         }
     }
-    
-    /**
-     * Check if an image can hold a message of given size
-     */
-    public boolean canHoldMessage(String imagePath, int messageSize) {
-        try {
-            BufferedImage image = imageHandler.loadImage(imagePath);
-            if (image == null) {
-                return false;
-            }
-            return stegoEngine.canHoldMessage(image, messageSize);
-        } catch (Exception e) {
+
+    public boolean embedImage(String coverImagePath, String secretImagePath, String outputPath) {
+        LoggerUtil.startOperation("Embed image");
+        if (isBlank(coverImagePath) || isBlank(secretImagePath) || isBlank(outputPath)) {
+            LoggerUtil.warn("Cover image, secret image, and output paths must be provided.");
+            LoggerUtil.completeOperation("Embed image", false);
             return false;
         }
+
+        String trimmedCover = coverImagePath.trim();
+        String trimmedSecret = secretImagePath.trim();
+        String trimmedOutput = outputPath.trim();
+
+        BufferedImage coverImage = imageHandler.loadImage(trimmedCover);
+        BufferedImage secretImage = imageHandler.loadImage(trimmedSecret);
+        if (coverImage == null || secretImage == null) {
+            LoggerUtil.warn("Unable to load required images for embedding.");
+            LoggerUtil.completeOperation("Embed image", false);
+            return false;
+        }
+
+        try {
+            BufferedImage stegoImage = Steganography.embedImage(coverImage, secretImage);
+            ensureParentDirectory(trimmedOutput);
+            boolean saved = imageHandler.saveImage(stegoImage, trimmedOutput);
+            LoggerUtil.completeOperation("Embed image", saved);
+            return saved;
+        } catch (IllegalArgumentException ex) {
+            LoggerUtil.warn("Failed to embed image: " + ex.getMessage());
+            LoggerUtil.completeOperation("Embed image", false);
+            return false;
+        } catch (Exception ex) {
+            LoggerUtil.error("Unexpected error during image embedding", ex);
+            LoggerUtil.completeOperation("Embed image", false);
+            return false;
+        }
+    }
+
+    public boolean extractImage(String inputPath, String outputPath) {
+        LoggerUtil.startOperation("Extract image");
+        if (isBlank(inputPath) || isBlank(outputPath)) {
+            LoggerUtil.warn("Input and output paths must be provided for extraction.");
+            LoggerUtil.completeOperation("Extract image", false);
+            return false;
+        }
+
+        String trimmedInput = inputPath.trim();
+        BufferedImage stegoImage = imageHandler.loadImage(trimmedInput);
+        if (stegoImage == null) {
+            LoggerUtil.warn("Unable to load stego image for extraction: " + inputPath);
+            LoggerUtil.completeOperation("Extract image", false);
+            return false;
+        }
+
+        try {
+            BufferedImage extracted = Steganography.extractImage(stegoImage, 0, 0);
+            if (extracted == null) {
+                LoggerUtil.warn("No embedded image data present.");
+                LoggerUtil.completeOperation("Extract image", false);
+                return false;
+            }
+            String trimmedOutput = outputPath.trim();
+            ensureParentDirectory(trimmedOutput);
+            boolean saved = imageHandler.saveImage(extracted, trimmedOutput);
+            LoggerUtil.completeOperation("Extract image", saved);
+            return saved;
+        } catch (IllegalArgumentException ex) {
+            LoggerUtil.warn("Failed to extract image: " + ex.getMessage());
+            LoggerUtil.completeOperation("Extract image", false);
+            return false;
+        } catch (Exception ex) {
+            LoggerUtil.error("Unexpected error during image extraction", ex);
+            LoggerUtil.completeOperation("Extract image", false);
+            return false;
+        }
+    }
+
+    private void ensureParentDirectory(String outputPath) {
+        File output = new File(outputPath);
+        File parent = output.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private boolean isNoMessageFound(IllegalArgumentException ex) {
+        String message = ex.getMessage();
+        if (message == null) {
+            return false;
+        }
+        return message.contains("Embedded message length exceeds image capacity")
+            || message.contains("No embedded message length found")
+            || message.contains("Image ended before the embedded message was fully read");
     }
 }

@@ -1,18 +1,14 @@
 package com.stegocam;
 
 import java.awt.image.BufferedImage;
-import java.security.Key;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.stegocam.crypto.CryptoEngine;
-import com.stegocam.crypto.KeyGenerator;
 import com.stegocam.stego.StegoEngine;
 
 /**
@@ -153,39 +149,4 @@ public class StegoTests {
         assertEquals(testMessage, extractedMessage, "Extracted message should match original");
     }
 
-    @Test
-    void testEncryptedMessageExtraction() {
-        try {
-            BufferedImage testImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB);
-            
-            // Fill with test pattern
-            for (int y = 0; y < 16; y++) {
-                for (int x = 0; x < 16; x++) {
-                    int rgb = (x * 16) << 16 | (y * 16) << 8 | ((x + y) * 8);
-                    testImage.setRGB(x, y, rgb);
-                }
-            }
-            
-            String originalMessage = "heyo";
-            String password = "testPassword";
-            
-            // Encrypt the message
-            CryptoEngine cryptoEngine = new CryptoEngine();
-            KeyGenerator keyGenerator = new KeyGenerator();
-            Key key = keyGenerator.generateKeyFromPassword(password);
-            byte[] encryptedMessage = cryptoEngine.encrypt(originalMessage.getBytes(), key);
-            
-            // Embed the encrypted message
-            BufferedImage stegoImage = stegoEngine.embedMessage(testImage, encryptedMessage);
-            
-            // Extract and decrypt the message
-            byte[] extractedEncryptedMessage = stegoEngine.extractMessage(stegoImage);
-            byte[] decryptedMessage = cryptoEngine.decrypt(extractedEncryptedMessage, key);
-            String extractedMessage = new String(decryptedMessage);
-            
-            assertEquals(originalMessage, extractedMessage, "Extracted encrypted message should match original");
-        } catch (Exception e) {
-            fail("Test failed with exception: " + e.getMessage());
-        }
-    }
 }

@@ -8,7 +8,7 @@ public class AppConfig {
     
     // Image processing settings
     public static final int MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-    public static final String[] SUPPORTED_IMAGE_FORMATS = {"jpg", "jpeg", "png", "bmp"};
+    public static final String[] SUPPORTED_IMAGE_FORMATS = {"png", "bmp"};
     
     // Encryption settings
     public static final String CRYPTO_ALGORITHM = "AES/GCM/NoPadding";
