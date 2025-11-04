@@ -7,3 +7,4 @@ com\stegocam\util\LoggerUtil.class
 com\stegocam\controller\StegoController.class
 com\stegocam\gui\MainUI.class
 com\stegocam\io\ImageHandler.class
+com\stegocam\crypto\MessageEncryption.class
