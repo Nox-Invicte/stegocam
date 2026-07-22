@@ -4,9 +4,6 @@
 
 StegoCam is a powerful Java desktop application that lets you **hide secret messages or entire images** inside ordinary pictures using **Least Significant Bit (LSB) steganography**. The modifications are visually imperceptible, making it an excellent tool for covert communication and data protection.
 
-![StegoCam Interface Preview](https://via.placeholder.com/900x500/2c2f33/00ffcc?text=StegoCam+—+Modern+Dark+JavaFX+Interface)  
-*Clean, modern dark-themed GUI with live image preview, progress tracking, and intuitive controls.*
-
 ## ✨ Features
 
 - **Text Steganography** — Embed and extract UTF-8 text messages
